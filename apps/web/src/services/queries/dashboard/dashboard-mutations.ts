@@ -21,5 +21,6 @@ export function useDashboardMutations(projectKey: string) {
 
   return {
     moveCard: moveCardMutation.mutateAsync,
+    isBlocked: moveCardMutation.isPending,
   };
 }

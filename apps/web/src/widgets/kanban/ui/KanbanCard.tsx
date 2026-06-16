@@ -1,10 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
@@ -33,6 +28,7 @@ interface KanbanCardProps extends React.ComponentProps<"div"> {
   isDragSource?: boolean;
   isDropTarget?: boolean;
   isOverlay?: boolean;
+  isBlocked?: boolean;
 }
 
 const priorityStyles: Record<KanbanPriority, string> = {
@@ -42,7 +38,10 @@ const priorityStyles: Record<KanbanPriority, string> = {
   critical: "bg-rose-50 text-rose-700 ring-rose-100",
 };
 
-const typeIcons: Record<KanbanIssueType, React.ComponentType<{ className?: string }>> = {
+const typeIcons: Record<
+  KanbanIssueType,
+  React.ComponentType<{ className?: string }>
+> = {
   bug: Bug,
   feature: Sparkles,
   task: CircleDot,
@@ -56,6 +55,7 @@ export const KanbanCard = React.forwardRef<HTMLDivElement, KanbanCardProps>(
       isDragSource = false,
       isDropTarget = false,
       isOverlay = false,
+      isBlocked = false,
       className,
       ...props
     },
@@ -71,7 +71,8 @@ export const KanbanCard = React.forwardRef<HTMLDivElement, KanbanCardProps>(
           isDropTarget && "border-primary shadow-sm",
           isDragSource && "opacity-0",
           isOverlay && "opacity-60 cursor-grabbing shadow-xl",
-          !isOverlay && "cursor-grab active:cursor-grabbing",
+          !isOverlay && !isBlocked && "cursor-grab active:cursor-grabbing",
+          isBlocked && "cursor-not-allowed opacity-70",
           className,
         )}
         {...props}
@@ -87,7 +88,11 @@ export const KanbanCard = React.forwardRef<HTMLDivElement, KanbanCardProps>(
             <button
               ref={handleRef}
               type="button"
-              className="rounded-md p-1 text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              disabled={isBlocked}
+              className={cn(
+                "rounded-md p-1 text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+                isBlocked && "cursor-not-allowed opacity-50 hover:bg-transparent",
+              )}
               aria-label={`Move ${task.key}`}
             >
               <GripVertical className="size-4" />

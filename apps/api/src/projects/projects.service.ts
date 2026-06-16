@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   NotImplementedException,
@@ -125,27 +126,104 @@ export class ProjectsService {
     projectKey: string,
     cardId: string,
     input: MoveIssueCardInput,
-  ): Promise<ProjectBoard> {
-    const [project] = await this.database.db
-      .select()
-      .from(projects)
-      .where(eq(projects.key, projectKey));
-
-    if (!project) {
-      throw new NotFoundException(`Project ${projectKey} was not found`);
+  ): Promise<void> {
+    if (!Number.isInteger(input.targetIndex)) {
+      throw new BadRequestException("Target index must be an integer");
     }
 
-    const [updatedCard] = await this.database.db
-      .update(issueCards)
-      .set({
-        targetColumnId: input.targetColumnId,
-        targetIndex: input.targetIndex,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(eq(issueCards.id, cardId), eq(issueCards.projectId, project.id)),
-      )
-      .returning();
+    await this.database.db.transaction(async (tx) => {
+      const [project] = await tx
+        .select()
+        .from(projects)
+        .where(eq(projects.key, projectKey));
+
+      if (!project) {
+        throw new NotFoundException(`Project ${projectKey} was not found`);
+      }
+
+      const [targetColumn] = await tx
+        .select()
+        .from(boardColumns)
+        .where(
+          and(
+            eq(boardColumns.id, input.targetColumnId),
+            eq(boardColumns.projectId, project.id),
+          ),
+        );
+
+      if (!targetColumn) {
+        throw new NotFoundException(
+          `Column ${input.targetColumnId} was not found`,
+        );
+      }
+
+      const [card] = await tx
+        .select()
+        .from(issueCards)
+        .where(
+          and(eq(issueCards.id, cardId), eq(issueCards.projectId, project.id)),
+        );
+
+      if (!card) {
+        throw new NotFoundException(`Card ${cardId} was not found`);
+      }
+
+      // Порядок мог измениться только в исходной и целевой колонках.
+      const affectedColumnIds = Array.from(
+        new Set([card.columnId, targetColumn.id]),
+      );
+
+      // Загружаем затронутые карточки один раз и собираем новый порядок в памяти.
+      const affectedCards = await tx
+        .select()
+        .from(issueCards)
+        .where(inArray(issueCards.columnId, affectedColumnIds))
+        .orderBy(asc(issueCards.sortOrder), asc(issueCards.createdAt));
+
+      // Убираем переносимую карточку из старой позиции перед пересчетом порядка.
+      const sourceCards = affectedCards.filter(
+        (item) => item.columnId === card.columnId && item.id !== card.id,
+      );
+      const targetCards = affectedCards.filter(
+        (item) => item.columnId === targetColumn.id && item.id !== card.id,
+      );
+
+      // Ограничиваем индекс, чтобы сброс за пределами списка корректно добавлял карточку в конец.
+      const targetIndex = Math.max(
+        0,
+        Math.min(input.targetIndex, targetCards.length),
+      );
+
+      // Вставляем карточку в целевую колонку на позицию, полученную из интерфейса.
+      targetCards.splice(targetIndex, 0, {
+        ...card,
+        columnId: targetColumn.id,
+      });
+
+      // При переносе между колонками закрываем разрыв в исходной колонке.
+      if (card.columnId !== targetColumn.id) {
+        for (const [sortOrder, sourceCard] of sourceCards.entries()) {
+          await tx
+            .update(issueCards)
+            .set({ sortOrder, updatedAt: new Date() })
+            .where(eq(issueCards.id, sourceCard.id));
+        }
+      }
+
+      // Сохраняем итоговый порядок целевой колонки, включая перенесенную карточку.
+      for (const [sortOrder, targetCard] of targetCards.entries()) {
+        await tx
+          .update(issueCards)
+          .set({
+            columnId: targetColumn.id,
+            sortOrder,
+            updatedAt: new Date(),
+          })
+          .where(eq(issueCards.id, targetCard.id));
+      }
+    });
+
+    return;
   }
 
   deleteCard(_projectKey: string, _cardId: string): Promise<void> {

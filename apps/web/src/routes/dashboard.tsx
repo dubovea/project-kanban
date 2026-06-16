@@ -10,7 +10,6 @@ import {
   type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/react";
-import { Feedback } from "@dnd-kit/dom";
 import { move } from "@dnd-kit/helpers";
 import { useSortable } from "@dnd-kit/react/sortable";
 import { useEffect, useRef, useState } from "react";
@@ -121,12 +120,18 @@ function cloneColumns(columns: Record<ColumnId, KanbanTask[]>) {
 }
 
 interface SortableIssueCardProps {
+  isBlocked: boolean;
   columnId: ColumnId;
   index: number;
   task: KanbanTask;
 }
 
-function SortableIssueCard({ columnId, index, task }: SortableIssueCardProps) {
+function SortableIssueCard({
+  isBlocked,
+  columnId,
+  index,
+  task,
+}: SortableIssueCardProps) {
   const { ref, handleRef, isDragging, isDragSource, isDropTarget } =
     useSortable({
       accept: "issue",
@@ -138,6 +143,7 @@ function SortableIssueCard({ columnId, index, task }: SortableIssueCardProps) {
       group: columnId,
       id: task.id,
       index,
+      disabled: isBlocked,
       type: "issue",
     });
 
@@ -148,20 +154,23 @@ function SortableIssueCard({ columnId, index, task }: SortableIssueCardProps) {
       handleRef={handleRef}
       isDragSource={isDragging || isDragSource}
       isDropTarget={isDropTarget}
+      isBlocked={isBlocked}
     />
   );
 }
 
 interface KanbanColumnViewProps {
+  isBlocked: boolean;
   column: KanbanColumn;
   tasks: KanbanTask[];
 }
 
-function KanbanColumnView({ column, tasks }: KanbanColumnViewProps) {
+function KanbanColumnView({ isBlocked, column, tasks }: KanbanColumnViewProps) {
   const { ref, isDropTarget } = useDroppable({
     id: column.id,
     accept: "issue",
     collisionPriority: 0,
+    disabled: isBlocked,
     data: {
       type: "column",
       columnId: column.id,
@@ -190,6 +199,7 @@ function KanbanColumnView({ column, tasks }: KanbanColumnViewProps) {
         {tasks.map((task, index) => (
           <SortableIssueCard
             key={task.id}
+            isBlocked={isBlocked}
             columnId={column.id}
             index={index}
             task={task}
@@ -208,7 +218,7 @@ function KanbanColumnView({ column, tasks }: KanbanColumnViewProps) {
 
 export function DashboardPage() {
   const dashboardQuery = useDashboardQuery(DASHBOARD_PROJECT_KEY);
-  const { moveCard } = useDashboardMutations(DASHBOARD_PROJECT_KEY);
+  const { moveCard, isBlocked } = useDashboardMutations(DASHBOARD_PROJECT_KEY);
   const [columns, setColumns] =
     useState<Record<ColumnId, KanbanTask[]>>(createEmptyColumns);
   const previousColumns =
@@ -226,10 +236,18 @@ export function DashboardPage() {
   }, [dashboardQuery.data]);
 
   function handleDragStart(_event: DragStartEvent) {
+    if (isBlocked) {
+      return;
+    }
+
     previousColumns.current = cloneColumns(columns);
   }
 
   function handleDragOver(event: DragOverEvent) {
+    if (isBlocked) {
+      return;
+    }
+
     const { source } = event.operation;
 
     if (source?.type !== "issue") {
@@ -240,6 +258,11 @@ export function DashboardPage() {
   }
 
   function handleDragEnd(event: DragEndEvent) {
+    if (isBlocked) {
+      setColumns(previousColumns.current);
+      return;
+    }
+
     if (event.canceled) {
       setColumns(previousColumns.current);
       return;
@@ -258,13 +281,24 @@ export function DashboardPage() {
       return;
     }
 
-    moveCard({
+    const targetColumn = board.columns.find(
+      (column) => column.key === position.columnId,
+    );
+
+    if (!targetColumn) {
+      setColumns(previousColumns.current);
+      return;
+    }
+
+    void moveCard({
       projectKey: DASHBOARD_PROJECT_KEY,
       cardId,
       input: {
-        targetColumnId: position.columnId,
+        targetColumnId: targetColumn.id,
         targetIndex: position.index,
       },
+    }).catch(() => {
+      setColumns(previousColumns.current);
     });
   }
 
@@ -314,6 +348,7 @@ export function DashboardPage() {
           {kanbanColumns.map((column) => (
             <KanbanColumnView
               key={column.id}
+              isBlocked={isBlocked}
               column={column}
               tasks={columns[column.id]}
             />
@@ -328,7 +363,7 @@ export function DashboardPage() {
             typeof source.id === "string" ? source.id : null,
           );
 
-          return task ? <KanbanCard task={task} isOverlay /> : null;
+          return task ? <KanbanCard task={task} isOverlay isBlocked /> : null;
         }}
       </DragOverlay>
     </DragDropProvider>
