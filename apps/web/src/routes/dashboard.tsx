@@ -1,5 +1,7 @@
 import { cn } from "@/lib/utils";
-import { KanbanCard, type KanbanTask } from "@/widgets/kanban/ui/KanbanCard";
+import { useDashboardQuery } from "@/services/queries/dashboard/dashboard-query";
+import { KanbanCard } from "@/widgets/kanban/ui/KanbanCard";
+import type { BoardColumn, KanbanTask } from "@/lib/api";
 import {
   DragDropProvider,
   DragOverlay,
@@ -11,9 +13,12 @@ import {
 import { Feedback } from "@dnd-kit/dom";
 import { move } from "@dnd-kit/helpers";
 import { useSortable } from "@dnd-kit/react/sortable";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useDashboardMutations } from "@/services/queries/dashboard/dashboard-mutations";
 
-type ColumnId = "backlog" | "inProgress" | "review" | "done";
+const DASHBOARD_PROJECT_KEY = "KAN";
+
+type ColumnId = "backlog" | "in_progress" | "review" | "done";
 
 interface KanbanColumn {
   id: ColumnId;
@@ -28,7 +33,7 @@ const kanbanColumns: KanbanColumn[] = [
     summary: "Triaged, not started",
   },
   {
-    id: "inProgress",
+    id: "in_progress",
     title: "In progress",
     summary: "Implementation active",
   },
@@ -44,168 +49,32 @@ const kanbanColumns: KanbanColumn[] = [
   },
 ];
 
-const initialColumns: Record<ColumnId, KanbanTask[]> = {
-  backlog: [
-    {
-      id: "issue-1",
-      key: "KAN-41",
-      title: "Support saved issue searches with user-specific filters",
-      description: "Persist filters, sorting, and visibility settings per user.",
-      type: "feature",
-      priority: "high",
-      state: "Open",
-      assignee: {
-        name: "Alex Johnson",
-        initials: "AJ",
-      },
-      estimate: "5h",
-      dueDate: "Jan 10",
-      updatedAt: "2h ago",
-      tags: ["Search", "UX"],
-      comments: 6,
-      attachments: 2,
-    },
-    {
-      id: "issue-2",
-      key: "KAN-43",
-      title: "Add project-level permissions for board visibility",
-      description: "Define read and write access for project boards.",
-      type: "task",
-      priority: "normal",
-      state: "Open",
-      assignee: {
-        name: "Sarah Chen",
-        initials: "SC",
-      },
-      estimate: "3h",
-      dueDate: "Jan 15",
-      updatedAt: "1d ago",
-      tags: ["Access"],
-      comments: 2,
-      attachments: 1,
-    },
-    {
-      id: "issue-3",
-      key: "KAN-48",
-      title: "Document workflow transitions for external contributors",
-      description: "Create contributor-facing docs for issue state changes.",
-      type: "task",
-      priority: "low",
-      state: "Open",
-      assignee: {
-        name: "Michael Rodriguez",
-        initials: "MR",
-      },
-      estimate: "2h",
-      dueDate: "Jan 20",
-      updatedAt: "3d ago",
-      tags: ["Docs"],
-      comments: 1,
-      attachments: 0,
-    },
-  ],
-  inProgress: [
-    {
-      id: "issue-4",
-      key: "KAN-36",
-      title: "Create command menu for issues, projects, and reports",
-      description: "Add keyboard-first navigation for primary workspace actions.",
-      type: "feature",
-      priority: "critical",
-      state: "In Progress",
-      assignee: {
-        name: "Emma Wilson",
-        initials: "EW",
-      },
-      estimate: "8h",
-      dueDate: "Aug 25",
-      updatedAt: "18m ago",
-      tags: ["Navigation", "Hotkeys"],
-      comments: 11,
-      attachments: 3,
-    },
-    {
-      id: "issue-5",
-      key: "KAN-39",
-      title: "Implement compact dark mode tokens for dense boards",
-      description: "Tune spacing, contrast, and surface colors for long work sessions.",
-      type: "task",
-      priority: "high",
-      state: "In Progress",
-      assignee: {
-        name: "David Kim",
-        initials: "DK",
-      },
-      estimate: "4h",
-      dueDate: "Aug 25",
-      updatedAt: "42m ago",
-      tags: ["Design"],
-      comments: 4,
-      attachments: 1,
-    },
-  ],
-  review: [
-    {
-      id: "issue-6",
-      key: "KAN-32",
-      title: "Fix stale query cache after changing issue state",
-      description: "Invalidate board and issue detail queries after state moves.",
-      type: "bug",
-      priority: "critical",
-      state: "Review",
-      assignee: {
-        name: "Nina Patel",
-        initials: "NP",
-      },
-      estimate: "1h",
-      dueDate: "Sep 02",
-      updatedAt: "8m ago",
-      tags: ["API", "Cache"],
-      comments: 8,
-      attachments: 0,
-    },
-  ],
-  done: [
-    {
-      id: "issue-7",
-      key: "KAN-1",
-      title: "Bootstrap monorepo with React, NestJS, and shared types",
-      description: "Create starter workspace structure and shared package.",
-      type: "task",
-      priority: "normal",
-      state: "Done",
-      assignee: {
-        name: "Aron Thompson",
-        initials: "AT",
-      },
-      estimate: "6h",
-      dueDate: "Sep 25",
-      updatedAt: "5d ago",
-      tags: ["Platform"],
-      comments: 5,
-      attachments: 2,
-    },
-    {
-      id: "issue-8",
-      key: "KAN-2",
-      title: "Add first API contract for projects and board columns",
-      description: "Expose typed routes for project board data.",
-      type: "task",
-      priority: "low",
-      state: "Done",
-      assignee: {
-        name: "James Brown",
-        initials: "JB",
-      },
-      estimate: "2h",
-      dueDate: "Sep 20",
-      updatedAt: "4d ago",
-      tags: ["API"],
-      comments: 0,
-      attachments: 1,
-    },
-  ],
-};
+function createEmptyColumns(): Record<ColumnId, KanbanTask[]> {
+  return {
+    backlog: [],
+    in_progress: [],
+    review: [],
+    done: [],
+  };
+}
+
+function isColumnId(value: string): value is ColumnId {
+  return kanbanColumns.some((column) => column.id === value);
+}
+
+function toDashboardColumns(
+  apiColumns: BoardColumn[],
+): Record<ColumnId, KanbanTask[]> {
+  const nextColumns = createEmptyColumns();
+
+  for (const column of apiColumns) {
+    if (isColumnId(column.key)) {
+      nextColumns[column.key] = column.tasks;
+    }
+  }
+
+  return nextColumns;
+}
 
 function findTask(
   columns: Record<ColumnId, KanbanTask[]>,
@@ -224,6 +93,25 @@ function findTask(
   }
 
   return undefined;
+}
+
+function findTaskPosition(
+  columns: Record<ColumnId, KanbanTask[]>,
+  taskId: string,
+) {
+  for (const column of kanbanColumns) {
+    const index = columns[column.id].findIndex((task) => task.id === taskId);
+
+    if (index !== -1) {
+      return {
+        columnId: column.id,
+        index,
+        task: columns[column.id][index],
+      };
+    }
+  }
+
+  return null;
 }
 
 function cloneColumns(columns: Record<ColumnId, KanbanTask[]>) {
@@ -319,10 +207,23 @@ function KanbanColumnView({ column, tasks }: KanbanColumnViewProps) {
 }
 
 export function DashboardPage() {
+  const dashboardQuery = useDashboardQuery(DASHBOARD_PROJECT_KEY);
+  const { moveCard } = useDashboardMutations(DASHBOARD_PROJECT_KEY);
   const [columns, setColumns] =
-    useState<Record<ColumnId, KanbanTask[]>>(initialColumns);
+    useState<Record<ColumnId, KanbanTask[]>>(createEmptyColumns);
   const previousColumns =
-    useRef<Record<ColumnId, KanbanTask[]>>(initialColumns);
+    useRef<Record<ColumnId, KanbanTask[]>>(createEmptyColumns());
+
+  useEffect(() => {
+    if (!dashboardQuery.data) {
+      return;
+    }
+
+    const nextColumns = toDashboardColumns(dashboardQuery.data.columns);
+
+    setColumns(nextColumns);
+    previousColumns.current = cloneColumns(nextColumns);
+  }, [dashboardQuery.data]);
 
   function handleDragStart(_event: DragStartEvent) {
     previousColumns.current = cloneColumns(columns);
@@ -341,8 +242,57 @@ export function DashboardPage() {
   function handleDragEnd(event: DragEndEvent) {
     if (event.canceled) {
       setColumns(previousColumns.current);
+      return;
     }
+
+    const { source } = event.operation;
+
+    if (source?.type !== "issue") {
+      return;
+    }
+
+    const cardId = String(source.id);
+    const position = findTaskPosition(columns, cardId);
+
+    if (!position) {
+      return;
+    }
+
+    moveCard({
+      projectKey: DASHBOARD_PROJECT_KEY,
+      cardId,
+      input: {
+        targetColumnId: position.columnId,
+        targetIndex: position.index,
+      },
+    });
   }
+
+  if (dashboardQuery.isPending) {
+    return (
+      <section className="grid gap-2">
+        <h1 className="text-2xl font-semibold tracking-normal">
+          Workspace overview
+        </h1>
+        <p className="text-sm text-muted-foreground">Loading board...</p>
+      </section>
+    );
+  }
+
+  if (dashboardQuery.isError) {
+    return (
+      <section className="grid gap-2">
+        <h1 className="text-2xl font-semibold tracking-normal">
+          Workspace overview
+        </h1>
+        <p className="text-sm text-destructive">
+          {dashboardQuery.error.message}
+        </p>
+      </section>
+    );
+  }
+
+  const board = dashboardQuery.data;
 
   return (
     <DragDropProvider
@@ -353,10 +303,10 @@ export function DashboardPage() {
       <div className="grid gap-6">
         <section className="grid gap-2">
           <h1 className="text-2xl font-semibold tracking-normal">
-            Workspace overview
+            {board.project.name}
           </h1>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            Operational issue board for product and platform work.
+            {board.project.description}
           </p>
         </section>
 
