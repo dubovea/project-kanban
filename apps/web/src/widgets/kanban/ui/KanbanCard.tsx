@@ -19,29 +19,13 @@ import {
   Sparkles,
 } from "lucide-react";
 import * as React from "react";
+import type {
+  KanbanIssueType,
+  KanbanPriority,
+  KanbanTask,
+} from "@project-kanban/shared";
 
-export type KanbanPriority = "low" | "normal" | "high" | "critical";
-
-export type KanbanIssueType = "task" | "bug" | "feature";
-
-export interface KanbanTask {
-  id: string;
-  key: string;
-  title: string;
-  type: KanbanIssueType;
-  priority: KanbanPriority;
-  state: string;
-  assignee: {
-    name: string;
-    initials: string;
-  };
-  estimate: string;
-  dueDate: string;
-  updatedAt: string;
-  tags: string[];
-  comments: number;
-  attachments: number;
-}
+export type { KanbanIssueType, KanbanPriority, KanbanTask };
 
 interface KanbanCardProps extends React.ComponentProps<"div"> {
   task: KanbanTask;
@@ -151,7 +135,7 @@ export const KanbanCard = React.forwardRef<HTMLDivElement, KanbanCardProps>(
           <div className="flex items-center justify-between gap-3 border-t pt-3 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1">
               <CalendarClock className="size-3.5" />
-              {task.dueDate}
+              {task.dueDate ?? "No due date"}
             </span>
             <span className="inline-flex items-center gap-2">
               <span className="inline-flex items-center gap-1">

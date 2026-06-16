@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "concurrently -n api,web -c cyan,green \"npm run dev -w @project-kanban/api\" \"npm run dev -w @project-kanban/web\"",
     "build": "npm run build -w @project-kanban/shared && npm run build -w @project-kanban/api && npm run build -w @project-kanban/web",
-    "typecheck": "npm run typecheck -w @project-kanban/shared && npm run typecheck -w @project-kanban/api && npm run typecheck -w @project-kanban/web"
+    "typecheck": "npm run build -w @project-kanban/shared && npm run typecheck -w @project-kanban/api && npm run typecheck -w @project-kanban/web"
   },
   "devDependencies": {
     "concurrently": "^10.0.3",

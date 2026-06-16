@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { AlertCircle } from "lucide-react";
-import { api, type BoardTask } from "@/lib/api";
+import { api, type KanbanTask } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -11,10 +11,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-const priorityVariant: Record<BoardTask["priority"], string> = {
+const priorityVariant: Record<KanbanTask["priority"], string> = {
   low: "bg-sky-50 text-sky-700",
-  medium: "bg-amber-50 text-amber-700",
+  normal: "bg-zinc-100 text-zinc-700",
   high: "bg-rose-50 text-rose-700",
+  critical: "bg-red-50 text-red-700",
 };
 
 export function BoardPage() {
@@ -61,7 +62,7 @@ export function BoardPage() {
         </p>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-3">
+      <section className="grid gap-4 lg:grid-cols-4">
         {boardQuery.data.columns.map((column) => (
           <Card key={column.id} className="min-h-80">
             <CardHeader>
@@ -90,7 +91,7 @@ export function BoardPage() {
                     </span>
                   </div>
                   <p className="mt-3 text-xs text-muted-foreground">
-                    {task.assignee}
+                    {task.assignee.name}
                   </p>
                 </article>
               ))}
