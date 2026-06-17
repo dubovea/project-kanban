@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/router-devtools";
 import { Activity, Columns3, FolderKanban } from "lucide-react";
+import { NetworkStatusBadge } from "@/components/NetworkStatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BoardPage } from "@/routes/board";
@@ -25,6 +26,7 @@ function RootLayout() {
           </Link>
 
           <nav className="flex items-center gap-1">
+            <NetworkStatusBadge />
             <Button variant="ghost" size="sm" asChild>
               <Link to="/">
                 <Activity className="size-4" />
