@@ -3,6 +3,7 @@ import {
   removeOfflineMutation,
 } from "@/services/offline/db";
 import { runOfflineMutation } from "@/services/offline/mutation-handlers";
+import { syncStore } from "./sync-store";
 
 let isStarted = false;
 let isFlushing = false;
@@ -21,6 +22,9 @@ export async function flushOfflineMutations() {
 
   try {
     const queuedMutations = await listOfflineMutations("queued");
+    if (queuedMutations.length) {
+      syncStore.getState().setSyncing(true);
+    }
 
     let syncedCount = 0;
     let failedCount = 0;
@@ -41,6 +45,7 @@ export async function flushOfflineMutations() {
       failedCount,
     };
   } finally {
+    syncStore.getState().setSyncing(false);
     isFlushing = false;
   }
 }
