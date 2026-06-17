@@ -5,10 +5,9 @@ import type {
   UpdateIssueCardInput,
 } from "@/lib/api";
 import {
-  listOfflineMutations,
   putOfflineMutation,
   type OfflineMutationEntry,
-} from "@/lib/offline-db";
+} from "@/services/offline/db";
 
 export interface CreateColumnMutationPayload {
   projectKey: string;
@@ -102,14 +101,4 @@ export function enqueueUpdateCardMutation(payload: UpdateCardMutationPayload) {
 
 export function enqueueDeleteCardMutation(payload: DeleteCardMutationPayload) {
   return enqueueOfflineMutation("deleteCard", payload);
-}
-
-export async function flushOfflineMutationsStub() {
-  const queuedMutations = await listOfflineMutations("queued");
-
-  return {
-    queuedCount: queuedMutations.length,
-    syncedCount: 0,
-    skippedReason: "Offline mutation replay is not implemented yet.",
-  };
 }

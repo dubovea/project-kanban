@@ -1,6 +1,6 @@
 import { api, type ProjectBoard } from "@/lib/api";
 import { useNetworkStatus } from "@/lib/network-status";
-import { enqueueMoveCardMutation } from "@/lib/offline-mutations";
+import { enqueueMoveCardMutation } from "@/services/offline";
 import { dashboardQueryKeys } from "@/services/queries/dashboard/dashboard-query";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
@@ -93,7 +93,7 @@ export function useDashboardMutations(projectKey: string) {
         throw error;
       }
 
-      toast.info("Move saved offline. Sync is not implemented yet.");
+      toast.info("Move saved offline. Sync is started after online.");
 
       return optimisticBoard;
     }

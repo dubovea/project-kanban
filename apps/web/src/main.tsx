@@ -7,6 +7,9 @@ import { router } from "@/router";
 import { ToastContainer } from "react-toastify";
 import "@/register-service-worker";
 import "@/styles/app.css";
+import { startOfflineSync } from "@/services/offline";
+
+startOfflineSync();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

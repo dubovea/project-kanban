@@ -1,7 +1,5 @@
-import type { AsyncStorage } from "@tanstack/react-query-persist-client";
-
 const DATABASE_NAME = "project-kanban-offline";
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 const KEY_VALUE_STORE = "entities";
 const MUTATION_OUTBOX_STORE = "changes";
 
@@ -29,7 +27,7 @@ export interface OfflineMutationEntry<TPayload = unknown> {
 
 let databasePromise: Promise<IDBDatabase> | undefined;
 
-function hasIndexedDbSupport() {
+export function hasIndexedDbSupport() {
   return typeof window !== "undefined" && Boolean(window.indexedDB);
 }
 
@@ -57,6 +55,7 @@ function createObjectStores(database: IDBDatabase) {
     const mutationStore = database.createObjectStore(MUTATION_OUTBOX_STORE, {
       keyPath: "id",
     });
+
     mutationStore.createIndex(MUTATION_STATUS_INDEX, "status", {
       unique: false,
     });
@@ -70,6 +69,7 @@ export function openProjectKanbanDatabase() {
   if (!hasIndexedDbSupport()) {
     return Promise.reject(new Error("IndexedDB is not available."));
   }
+
   databasePromise ??= new Promise<IDBDatabase>((resolve, reject) => {
     const request = window.indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
 
@@ -86,42 +86,40 @@ export function openProjectKanbanDatabase() {
   return databasePromise;
 }
 
-export const indexedDbQueryStorage: AsyncStorage<string> | undefined =
-  hasIndexedDbSupport()
-    ? {
-        async getItem(key) {
-          const database = await openProjectKanbanDatabase();
-          const transaction = database.transaction(KEY_VALUE_STORE, "readonly");
-          const store = transaction.objectStore(KEY_VALUE_STORE);
-          const record = await requestToPromise<
-            KeyValueRecord | undefined
-          >(store.get(key));
+export async function getPersistedEntity(key: string) {
+  const database = await openProjectKanbanDatabase();
+  const transaction = database.transaction(KEY_VALUE_STORE, "readonly");
+  const store = transaction.objectStore(KEY_VALUE_STORE);
+  const record = await requestToPromise<KeyValueRecord | undefined>(
+    store.get(key),
+  );
 
-          return record?.value ?? null;
-        },
-        async setItem(key, value) {
-          const database = await openProjectKanbanDatabase();
-          const transaction = database.transaction(KEY_VALUE_STORE, "readwrite");
-          const store = transaction.objectStore(KEY_VALUE_STORE);
-          store.put({
-            key,
-            value,
-            updatedAt: new Date().toISOString(),
-          } satisfies KeyValueRecord);
+  return record?.value ?? null;
+}
 
-          await transactionDone(transaction);
-        },
-        async removeItem(key) {
-          const database = await openProjectKanbanDatabase();
-          const transaction = database.transaction(KEY_VALUE_STORE, "readwrite");
-          const store = transaction.objectStore(KEY_VALUE_STORE);
+export async function setPersistedEntity(key: string, value: string) {
+  const database = await openProjectKanbanDatabase();
+  const transaction = database.transaction(KEY_VALUE_STORE, "readwrite");
+  const store = transaction.objectStore(KEY_VALUE_STORE);
 
-          store.delete(key);
+  store.put({
+    key,
+    value,
+    updatedAt: new Date().toISOString(),
+  } satisfies KeyValueRecord);
 
-          await transactionDone(transaction);
-        },
-      }
-    : undefined;
+  await transactionDone(transaction);
+}
+
+export async function removePersistedEntity(key: string) {
+  const database = await openProjectKanbanDatabase();
+  const transaction = database.transaction(KEY_VALUE_STORE, "readwrite");
+  const store = transaction.objectStore(KEY_VALUE_STORE);
+
+  store.delete(key);
+
+  await transactionDone(transaction);
+}
 
 export async function putOfflineMutation<TPayload>(
   entry: OfflineMutationEntry<TPayload>,

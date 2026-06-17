@@ -1,7 +1,7 @@
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
 import { QueryClient } from "@tanstack/react-query";
 import type { PersistQueryClientOptions } from "@tanstack/react-query-persist-client";
-import { indexedDbQueryStorage } from "@/lib/offline-db";
+import { indexedDbQueryStorage } from "@/services/offline";
 
 const QUERY_CACHE_MAX_AGE = 1000 * 60 * 60 * 24;
 
