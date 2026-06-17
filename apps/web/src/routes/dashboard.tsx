@@ -14,6 +14,7 @@ import { move } from "@dnd-kit/helpers";
 import { useSortable } from "@dnd-kit/react/sortable";
 import { useEffect, useRef, useState } from "react";
 import { useDashboardMutations } from "@/services/queries/dashboard/dashboard-mutations";
+import { useOfflineSyncStatus } from "@/services/offline/sync-store";
 
 const DASHBOARD_PROJECT_KEY = "KAN";
 
@@ -120,14 +121,14 @@ function cloneColumns(columns: Record<ColumnId, KanbanTask[]>) {
 }
 
 interface SortableIssueCardProps {
-  isBlocked: boolean;
+  isBoardBlocked: boolean;
   columnId: ColumnId;
   index: number;
   task: KanbanTask;
 }
 
 function SortableIssueCard({
-  isBlocked,
+  isBoardBlocked,
   columnId,
   index,
   task,
@@ -143,7 +144,7 @@ function SortableIssueCard({
       group: columnId,
       id: task.id,
       index,
-      disabled: isBlocked,
+      disabled: isBoardBlocked,
       type: "issue",
     });
 
@@ -154,23 +155,23 @@ function SortableIssueCard({
       handleRef={handleRef}
       isDragSource={isDragging || isDragSource}
       isDropTarget={isDropTarget}
-      isBlocked={isBlocked}
+      isBlocked={isBoardBlocked}
     />
   );
 }
 
 interface KanbanColumnViewProps {
-  isBlocked: boolean;
+  isBoardBlocked: boolean;
   column: KanbanColumn;
   tasks: KanbanTask[];
 }
 
-function KanbanColumnView({ isBlocked, column, tasks }: KanbanColumnViewProps) {
+function KanbanColumnView({ isBoardBlocked, column, tasks }: KanbanColumnViewProps) {
   const { ref, isDropTarget } = useDroppable({
     id: column.id,
     accept: "issue",
     collisionPriority: 0,
-    disabled: isBlocked,
+    disabled: isBoardBlocked,
     data: {
       type: "column",
       columnId: column.id,
@@ -181,7 +182,7 @@ function KanbanColumnView({ isBlocked, column, tasks }: KanbanColumnViewProps) {
     <section
       ref={ref}
       className={cn(
-        "grid min-h-[32rem] content-start gap-3 rounded-lg border bg-card p-3 transition-colors",
+        "grid min-h-128 content-start gap-3 rounded-lg border bg-card p-3 transition-colors",
         isDropTarget && "border-primary bg-accent/60",
       )}
     >
@@ -199,7 +200,7 @@ function KanbanColumnView({ isBlocked, column, tasks }: KanbanColumnViewProps) {
         {tasks.map((task, index) => (
           <SortableIssueCard
             key={task.id}
-            isBlocked={isBlocked}
+            isBoardBlocked={isBoardBlocked}
             columnId={column.id}
             index={index}
             task={task}
@@ -218,7 +219,10 @@ function KanbanColumnView({ isBlocked, column, tasks }: KanbanColumnViewProps) {
 
 export function DashboardPage() {
   const dashboardQuery = useDashboardQuery(DASHBOARD_PROJECT_KEY);
+  const { isSyncing } = useOfflineSyncStatus();
   const { moveCard, isBlocked } = useDashboardMutations(DASHBOARD_PROJECT_KEY);
+  const isBoardBlocked = isBlocked || isSyncing;
+
   const [columns, setColumns] =
     useState<Record<ColumnId, KanbanTask[]>>(createEmptyColumns);
   const previousColumns =
@@ -236,7 +240,7 @@ export function DashboardPage() {
   }, [dashboardQuery.data]);
 
   function handleDragStart(_event: DragStartEvent) {
-    if (isBlocked) {
+    if (isBoardBlocked) {
       return;
     }
 
@@ -244,7 +248,7 @@ export function DashboardPage() {
   }
 
   function handleDragOver(event: DragOverEvent) {
-    if (isBlocked) {
+    if (isBoardBlocked) {
       return;
     }
 
@@ -258,7 +262,7 @@ export function DashboardPage() {
   }
 
   function handleDragEnd(event: DragEndEvent) {
-    if (isBlocked) {
+    if (isBoardBlocked) {
       setColumns(previousColumns.current);
       return;
     }
@@ -348,7 +352,7 @@ export function DashboardPage() {
           {kanbanColumns.map((column) => (
             <KanbanColumnView
               key={column.id}
-              isBlocked={isBlocked}
+              isBoardBlocked={isBoardBlocked}
               column={column}
               tasks={columns[column.id]}
             />
