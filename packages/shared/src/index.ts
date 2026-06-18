@@ -29,6 +29,7 @@ export interface KanbanAssignee {
 
 export interface KanbanTask {
   id: string;
+  columnId: string;
   key: string;
   title: string;
   description: string;

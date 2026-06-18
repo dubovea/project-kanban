@@ -47,5 +47,11 @@ export function findTaskColumnId(
     return undefined;
   }
 
+  for (const [columnId, tasks] of Object.entries(columns)) {
+    if (tasks.some((task) => task.id === taskId || task.key === taskId)) {
+      return columnId;
+    }
+  }
+
   return findTaskPosition(columns, taskId)?.columnId;
 }

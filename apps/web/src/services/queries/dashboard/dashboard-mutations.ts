@@ -68,10 +68,17 @@ export function useDashboardMutations(projectKey: string) {
     queryClient.invalidateQueries({
       queryKey: boardQueryKey,
     });
+  const invalidateCard = (cardId: string) =>
+    queryClient.invalidateQueries({
+      queryKey: dashboardQueryKeys.card(projectKey, cardId),
+    });
 
   const moveCardMutation = useMutation({
     mutationFn: api.moveCard,
-    onSuccess: invalidateBoard,
+    onSuccess: (_data, params) => {
+      void invalidateBoard();
+      void invalidateCard(params.cardId);
+    },
     onError: (error) => {
       toast.error(error.message);
     },
@@ -87,7 +94,10 @@ export function useDashboardMutations(projectKey: string) {
 
   const updateCardMutation = useMutation({
     mutationFn: api.updateCard,
-    onSuccess: invalidateBoard,
+    onSuccess: (_data, params) => {
+      void invalidateBoard();
+      void invalidateCard(params.cardId);
+    },
     onError: (error) => {
       toast.error(error.message);
     },

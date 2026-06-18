@@ -1,39 +1,15 @@
 import { create } from "zustand";
 
-export type KanbanCardDialogTarget =
-  | {
-      type: "view";
-      cardId: string;
-    }
-  | {
-      type: "create";
-      columnId?: string;
-    };
-
-interface KanbanCardDialogState {
-  pendingTarget: KanbanCardDialogTarget | null;
-  openCard: (cardId: string) => void;
-  createCard: (columnId?: string) => void;
-  clearPendingTarget: () => void;
+interface KanbanCardDialogUiState {
+  isEditing: boolean;
+  setEditing: (value: boolean) => void;
+  resetDialogUi: () => void;
 }
 
-export const useKanbanCardDialogStore = create<KanbanCardDialogState>(
+export const useKanbanCardDialogStore = create<KanbanCardDialogUiState>(
   (set) => ({
-    pendingTarget: null,
-    openCard: (cardId) =>
-      set({
-        pendingTarget: {
-          type: "view",
-          cardId,
-        },
-      }),
-    createCard: (columnId) =>
-      set({
-        pendingTarget: {
-          type: "create",
-          columnId,
-        },
-      }),
-    clearPendingTarget: () => set({ pendingTarget: null }),
+    isEditing: false,
+    setEditing: (value) => set({ isEditing: value }),
+    resetDialogUi: () => set({ isEditing: false }),
   }),
 );

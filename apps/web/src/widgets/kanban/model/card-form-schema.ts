@@ -76,7 +76,7 @@ export function getKanbanCardFormDefaults(params: {
   const { task, columns, columnId } = params;
 
   return {
-    columnId: columnId ?? columns[0]?.id ?? "",
+    columnId: columnId ?? task?.columnId ?? columns[0]?.id ?? "",
     title: task?.title ?? "",
     description: task?.description ?? "",
     type: task?.type ?? "task",

@@ -21,6 +21,11 @@ export class ProjectsController {
     return this.projectsService.getBoard(key);
   }
 
+  @Get(":key/cards/:cardId")
+  getCard(@Param("key") key: string, @Param("cardId") cardId: string) {
+    return this.projectsService.getCard(key, cardId);
+  }
+
   @Post(":key/columns")
   createColumn(
     @Param("key") key: string,

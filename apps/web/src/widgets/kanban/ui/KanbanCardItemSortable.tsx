@@ -2,7 +2,7 @@ import { KanbanCardItem } from "@/widgets/kanban/ui/KanbanCardItem";
 import type { KanbanTask } from "@/lib/api";
 import { useSortable } from "@dnd-kit/react/sortable";
 import { ColumnId } from "../model/types";
-import { useKanbanCardDialogStore } from "../model/card-dialog-store";
+import { useNavigate } from "@tanstack/react-router";
 
 interface KanbanCardItemSortableProps {
   isBlocked: boolean;
@@ -17,7 +17,7 @@ export function KanbanCardItemSortable({
   index,
   task,
 }: KanbanCardItemSortableProps) {
-  const openCard = useKanbanCardDialogStore((state) => state.openCard);
+  const navigate = useNavigate();
   const { ref, handleRef, isDragging, isDragSource, isDropTarget } =
     useSortable({
       accept: "issue",
@@ -33,6 +33,19 @@ export function KanbanCardItemSortable({
       type: "issue",
     });
 
+  function openCard() {
+    if (isBlocked || isDragging || isDragSource) {
+      return;
+    }
+
+    void navigate({
+      to: "/cards/$cardId",
+      params: {
+        cardId: task.key,
+      },
+    });
+  }
+
   return (
     <KanbanCardItem
       ref={ref}
@@ -41,9 +54,13 @@ export function KanbanCardItemSortable({
       isDragSource={isDragging || isDragSource}
       isDropTarget={isDropTarget}
       isBlocked={isBlocked}
-      onClick={() => {
-        if (!isBlocked && !isDragging && !isDragSource) {
-          openCard(task.id);
+      role="button"
+      tabIndex={isBlocked ? -1 : 0}
+      onClick={openCard}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openCard();
         }
       }}
     />

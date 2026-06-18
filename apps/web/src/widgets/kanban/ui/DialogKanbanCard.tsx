@@ -24,8 +24,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import type { BoardColumn, KanbanTask } from "@/lib/api";
+import { useKanbanCardDialogStore } from "@/widgets/kanban/model/card-dialog-store";
 import {
   getKanbanCardFormDefaults,
   issueTypeOptions,
@@ -46,6 +48,8 @@ interface DialogKanbanCardProps {
   task?: KanbanTask | null;
   columns: BoardColumn[];
   columnId?: string;
+  isLoading?: boolean;
+  errorMessage?: string;
   isSubmitting?: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (values: KanbanCardFormValues) => Promise<void> | void;
@@ -57,11 +61,17 @@ export function DialogKanbanCard({
   task,
   columns,
   columnId,
+  isLoading = false,
+  errorMessage,
   isSubmitting = false,
   onOpenChange,
   onSubmit,
 }: DialogKanbanCardProps) {
-  const [isEditing, setIsEditing] = React.useState(mode === "create");
+  const isEditing = useKanbanCardDialogStore((state) => state.isEditing);
+  const setEditing = useKanbanCardDialogStore((state) => state.setEditing);
+  const resetDialogUi = useKanbanCardDialogStore(
+    (state) => state.resetDialogUi,
+  );
   const defaults = React.useMemo(
     () => getKanbanCardFormDefaults({ task, columns, columnId }),
     [columnId, columns, task],
@@ -74,8 +84,16 @@ export function DialogKanbanCard({
 
   React.useEffect(() => {
     form.reset(defaults);
-    setIsEditing(mode === "create");
-  }, [defaults, form, mode]);
+  }, [defaults, form]);
+
+  React.useEffect(() => {
+    if (!isOpen) {
+      resetDialogUi();
+      return;
+    }
+
+    setEditing(mode === "create");
+  }, [isOpen, mode, resetDialogUi, setEditing, task?.id]);
 
   const isCreateMode = mode === "create";
   const isReadOnly = !isCreateMode && !isEditing;
@@ -90,7 +108,7 @@ export function DialogKanbanCard({
       await onSubmit(values);
 
       if (!isCreateMode) {
-        setIsEditing(false);
+        setEditing(false);
       }
     } catch {
       // The mutation layer owns toast/error presentation.
@@ -104,7 +122,7 @@ export function DialogKanbanCard({
     }
 
     form.reset(defaults);
-    setIsEditing(false);
+    setEditing(false);
   }
 
   return (
@@ -122,7 +140,24 @@ export function DialogKanbanCard({
             <DialogDescription>{dialogDescription}</DialogDescription>
           </DialogHeader>
 
-          {!isCreateMode && !task ? (
+          {isLoading ? (
+            <div className="grid gap-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Skeleton className="h-9 sm:col-span-2" />
+                <Skeleton className="h-32 sm:col-span-2" />
+                <Skeleton className="h-9" />
+                <Skeleton className="h-9" />
+                <Skeleton className="h-9" />
+                <Skeleton className="h-9" />
+                <Skeleton className="h-9" />
+                <Skeleton className="h-9" />
+              </div>
+            </div>
+          ) : errorMessage ? (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+              {errorMessage}
+            </div>
+          ) : !isCreateMode && !task ? (
             <DialogFooter>
               <Button type="button" onClick={() => onOpenChange(false)}>
                 Close
@@ -362,7 +397,9 @@ export function DialogKanbanCard({
 
                 {task && (
                   <div className="grid gap-2 rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground sm:grid-cols-3">
-                    <span>Updated {new Date(task.updatedAt).toLocaleString()}</span>
+                    <span>
+                      Updated {new Date(task.updatedAt).toLocaleString()}
+                    </span>
                     <span>{task.comments} comments</span>
                     <span>{task.attachments} attachments</span>
                   </div>
@@ -372,7 +409,7 @@ export function DialogKanbanCard({
           )}
         </div>
 
-        {(isCreateMode || task) && (
+        {!isLoading && !errorMessage && (isCreateMode || task) && (
           <DialogFooter className="border-t bg-muted/30 px-6 py-4">
             {isReadOnly ? (
               <>
@@ -383,7 +420,7 @@ export function DialogKanbanCard({
                 >
                   Close
                 </Button>
-                <Button type="button" onClick={() => setIsEditing(true)}>
+                <Button type="button" onClick={() => setEditing(true)}>
                   <Pencil className="size-4" />
                   Edit
                 </Button>

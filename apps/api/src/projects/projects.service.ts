@@ -16,7 +16,43 @@ import type {
 } from "./projects.types";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { DatabaseService } from "../database/database.service";
-import { projects, boardColumns, issueCards } from "../database/schema";
+import {
+  projects,
+  boardColumns,
+  issueCards,
+  issueCardTags,
+} from "../database/schema";
+
+type IssueCardRow = typeof issueCards.$inferSelect;
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
+function toKanbanTask(card: IssueCardRow, tags: string[] = []): KanbanTask {
+  return {
+    id: card.id,
+    columnId: card.columnId,
+    key: card.key,
+    title: card.title,
+    description: card.description,
+    type: card.type,
+    priority: card.priority,
+    state: card.state,
+    assignee: {
+      name: card.assigneeName,
+      initials: card.assigneeInitials,
+    },
+    estimate: card.estimate,
+    dueDate: card.dueDate,
+    updatedAt: card.updatedAt.toISOString(),
+    tags,
+    comments: card.commentsCount,
+    attachments: card.attachmentsCount,
+  };
+}
 
 @Injectable()
 export class ProjectsService {
@@ -60,25 +96,7 @@ export class ProjectsService {
       position: column.position,
       tasks: cards
         .filter((card) => card.columnId === column.id)
-        .map((card) => ({
-          id: card.id,
-          key: card.key,
-          title: card.title,
-          description: card.description,
-          type: card.type,
-          priority: card.priority,
-          state: card.state,
-          assignee: {
-            name: card.assigneeName,
-            initials: card.assigneeInitials,
-          },
-          estimate: card.estimate,
-          dueDate: card.dueDate,
-          updatedAt: card.updatedAt.toISOString(),
-          tags: [],
-          comments: card.commentsCount,
-          attachments: card.attachmentsCount,
-        })),
+        .map((card) => toKanbanTask(card)),
     }));
 
     return {
@@ -92,6 +110,41 @@ export class ProjectsService {
       },
       columns: columnsWithTasks,
     };
+  }
+
+  async getCard(projectKey: string, cardId: string): Promise<KanbanTask> {
+    const [project] = await this.database.db
+      .select()
+      .from(projects)
+      .where(eq(projects.key, projectKey));
+
+    if (!project) {
+      throw new NotFoundException(`Project ${projectKey} was not found`);
+    }
+
+    const cardLookup = isUuid(cardId)
+      ? eq(issueCards.id, cardId)
+      : eq(issueCards.key, cardId);
+
+    const [card] = await this.database.db
+      .select()
+      .from(issueCards)
+      .where(and(eq(issueCards.projectId, project.id), cardLookup));
+
+    if (!card) {
+      throw new NotFoundException(`Card ${cardId} was not found`);
+    }
+
+    const tags = await this.database.db
+      .select()
+      .from(issueCardTags)
+      .where(eq(issueCardTags.issueCardId, card.id))
+      .orderBy(asc(issueCardTags.position));
+
+    return toKanbanTask(
+      card,
+      tags.map((tag) => tag.name),
+    );
   }
 
   createColumn(

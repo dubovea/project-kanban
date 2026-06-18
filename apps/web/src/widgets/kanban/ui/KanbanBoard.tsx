@@ -9,8 +9,8 @@ import {
 } from "@dnd-kit/react";
 import { KanbanColumnView } from "@/widgets/kanban/ui/KanbanColumnView";
 import { findTask } from "../lib/utils";
-import { useKanbanCardDialogStore } from "../model/card-dialog-store";
 import { Plus } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 
 interface KanbanBoardProps {
   board: ProjectBoard;
@@ -29,7 +29,7 @@ export function KanbanBoard({
   handleDragOver,
   handleDragEnd,
 }: KanbanBoardProps) {
-  const createCard = useKanbanCardDialogStore((state) => state.createCard);
+  const navigate = useNavigate();
   const orderedColumns = [...board.columns].sort(
     (a, b) => a.position - b.position,
   );
@@ -56,7 +56,14 @@ export function KanbanBoard({
               type="button"
               size="sm"
               disabled={isBlocked || orderedColumns.length === 0}
-              onClick={() => createCard(orderedColumns[0]?.id)}
+              onClick={() => {
+                void navigate({
+                  to: "/cards/new",
+                  search: {
+                    columnId: orderedColumns[0]?.id,
+                  },
+                });
+              }}
             >
               <Plus className="size-4" />
               New card

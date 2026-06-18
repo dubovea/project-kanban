@@ -1,4 +1,7 @@
-import { useDashboardQuery } from "@/services/queries/dashboard/dashboard-query";
+import {
+  useDashboardCardQuery,
+  useDashboardQuery,
+} from "@/services/queries/dashboard/dashboard-query";
 import type { BoardColumn, KanbanTask } from "@/lib/api";
 import { type DragEndEvent, type DragOverEvent } from "@dnd-kit/react";
 import { move } from "@dnd-kit/helpers";
@@ -6,28 +9,29 @@ import { useEffect, useRef, useState } from "react";
 import { useDashboardMutations } from "@/services/queries/dashboard/dashboard-mutations";
 import { useOfflineSyncStatus } from "@/services/offline/sync-store";
 import { KanbanBoard } from "@/widgets/kanban/ui/KanbanBoard";
-import {
-  findTask,
-  findTaskColumnId,
-  findTaskPosition,
-} from "@/widgets/kanban/lib/utils";
+import { findTaskColumnId, findTaskPosition } from "@/widgets/kanban/lib/utils";
 import { DialogKanbanCard } from "@/widgets/kanban/ui/DialogKanbanCard";
 import {
   toCreateIssueCardInput,
   toUpdateIssueCardInput,
   type KanbanCardFormValues,
 } from "@/widgets/kanban/model/card-form-schema";
-import {
-  type KanbanCardDialogTarget,
-  useKanbanCardDialogStore,
-} from "@/widgets/kanban/model/card-dialog-store";
 import { useNavigate } from "@tanstack/react-router";
 
 const DASHBOARD_PROJECT_KEY = "KAN";
 
 type DashboardColumns = Record<string, KanbanTask[]>;
 
-export type DashboardCardRoute = KanbanCardDialogTarget | null;
+export type DashboardCardRoute =
+  | {
+      type: "view";
+      cardId: string;
+    }
+  | {
+      type: "create";
+      columnId?: string;
+    }
+  | null;
 
 function toDashboardColumns(apiColumns: BoardColumn[]): DashboardColumns {
   return Object.fromEntries(
@@ -47,7 +51,9 @@ interface DashboardPageProps {
 
 export function DashboardPage({ cardRoute = null }: DashboardPageProps) {
   const navigate = useNavigate();
+  const cardId = cardRoute?.type === "view" ? cardRoute.cardId : null;
   const dashboardQuery = useDashboardQuery(DASHBOARD_PROJECT_KEY);
+  const cardQuery = useDashboardCardQuery(DASHBOARD_PROJECT_KEY, cardId);
   const { isSyncing } = useOfflineSyncStatus();
   const {
     createCard,
@@ -56,39 +62,9 @@ export function DashboardPage({ cardRoute = null }: DashboardPageProps) {
     isBlocked,
     isCardSubmitting,
   } = useDashboardMutations(DASHBOARD_PROJECT_KEY);
-  const pendingTarget = useKanbanCardDialogStore(
-    (state) => state.pendingTarget,
-  );
-  const clearPendingTarget = useKanbanCardDialogStore(
-    (state) => state.clearPendingTarget,
-  );
   const isBoardBlocked = isBlocked || isSyncing;
   const [columns, setColumns] = useState<DashboardColumns>({});
   const previousColumns = useRef<DashboardColumns>({});
-
-  useEffect(() => {
-    if (!pendingTarget) {
-      return;
-    }
-
-    if (pendingTarget.type === "view") {
-      void navigate({
-        to: "/cards/$cardId",
-        params: {
-          cardId: pendingTarget.cardId,
-        },
-      });
-    } else {
-      void navigate({
-        to: "/cards/new",
-        search: {
-          columnId: pendingTarget.columnId,
-        },
-      });
-    }
-
-    clearPendingTarget();
-  }, [clearPendingTarget, navigate, pendingTarget]);
 
   useEffect(() => {
     if (!dashboardQuery.data) {
@@ -125,6 +101,11 @@ export function DashboardPage({ cardRoute = null }: DashboardPageProps) {
 
   function handleDragEnd(event: DragEndEvent) {
     if (isBoardBlocked) {
+      setColumns(previousColumns.current);
+      return;
+    }
+
+    if (!board) {
       setColumns(previousColumns.current);
       return;
     }
@@ -180,44 +161,87 @@ export function DashboardPage({ cardRoute = null }: DashboardPageProps) {
     void navigate({ to: "/" });
   }
 
+  const board = dashboardQuery.data;
+  const boardColumns = board?.columns ?? [];
+  const selectedTask =
+    cardRoute?.type === "view" ? (cardQuery.data ?? null) : null;
+  const selectedTaskColumnId =
+    selectedTask?.columnId ??
+    findTaskColumnId(
+      columns,
+      cardRoute?.type === "view" ? cardRoute.cardId : null,
+    );
+  const dialogColumnId =
+    cardRoute?.type === "create"
+      ? (cardRoute.columnId ?? boardColumns[0]?.id)
+      : selectedTaskColumnId;
+  const isDialogOpen = Boolean(cardRoute);
+  const isDialogLoading =
+    cardRoute?.type === "view"
+      ? cardQuery.isPending
+      : cardRoute?.type === "create" && dashboardQuery.isPending;
+  const dialogErrorMessage =
+    cardRoute?.type === "view" && cardQuery.isError
+      ? cardQuery.error.message
+      : undefined;
+  const dialog = (
+    <DialogKanbanCard
+      isOpen={isDialogOpen}
+      mode={cardRoute?.type === "create" ? "create" : "view"}
+      task={selectedTask}
+      columns={boardColumns}
+      columnId={dialogColumnId}
+      isLoading={isDialogLoading}
+      errorMessage={dialogErrorMessage}
+      isSubmitting={isCardSubmitting}
+      onOpenChange={(open) => {
+        if (!open) {
+          closeCardRoute();
+        }
+      }}
+      onSubmit={handleCardDialogSubmit}
+    />
+  );
+
   if (dashboardQuery.isPending) {
     return (
-      <section className="grid gap-2">
-        <h1 className="text-2xl font-semibold tracking-normal">
-          Workspace overview
-        </h1>
-        <p className="text-sm text-muted-foreground">Loading board...</p>
-      </section>
+      <>
+        {dialog}
+        <section className="grid gap-2">
+          <h1 className="text-2xl font-semibold tracking-normal">
+            Workspace overview
+          </h1>
+          <p className="text-sm text-muted-foreground">Loading board...</p>
+        </section>
+      </>
     );
   }
 
   if (dashboardQuery.isError) {
     return (
-      <section className="grid gap-2">
-        <h1 className="text-2xl font-semibold tracking-normal">
-          Workspace overview
-        </h1>
-        <p className="text-sm text-destructive">
-          {dashboardQuery.error.message}
-        </p>
-      </section>
+      <>
+        {dialog}
+        <section className="grid gap-2">
+          <h1 className="text-2xl font-semibold tracking-normal">
+            Workspace overview
+          </h1>
+          <p className="text-sm text-destructive">
+            {dashboardQuery.error.message}
+          </p>
+        </section>
+      </>
     );
   }
 
-  const board = dashboardQuery.data;
-  const selectedTask =
-    cardRoute?.type === "view" ? findTask(columns, cardRoute.cardId) : null;
-  const selectedTaskColumnId = findTaskColumnId(
-    columns,
-    selectedTask?.id ?? null,
-  );
-  const dialogColumnId =
-    cardRoute?.type === "create"
-      ? (cardRoute.columnId ?? board.columns[0]?.id)
-      : selectedTaskColumnId;
-  const isDialogOpen = Boolean(cardRoute);
+  if (!board) {
+    return <>{dialog}</>;
+  }
 
   async function handleCardDialogSubmit(values: KanbanCardFormValues) {
+    if (!board) {
+      return;
+    }
+
     const targetColumn = board.columns.find(
       (column) => column.id === values.columnId,
     );
@@ -232,7 +256,7 @@ export function DashboardPage({ cardRoute = null }: DashboardPageProps) {
         void navigate({
           to: "/cards/$cardId",
           params: {
-            cardId: createdCard.id,
+            cardId: createdCard.key,
           },
         });
       } else {
@@ -266,20 +290,7 @@ export function DashboardPage({ cardRoute = null }: DashboardPageProps) {
 
   return (
     <>
-      <DialogKanbanCard
-        isOpen={isDialogOpen}
-        mode={cardRoute?.type === "create" ? "create" : "view"}
-        task={selectedTask}
-        columns={board.columns}
-        columnId={dialogColumnId}
-        isSubmitting={isCardSubmitting}
-        onOpenChange={(open) => {
-          if (!open) {
-            closeCardRoute();
-          }
-        }}
-        onSubmit={handleCardDialogSubmit}
-      />
+      {dialog}
 
       <KanbanBoard
         board={board}

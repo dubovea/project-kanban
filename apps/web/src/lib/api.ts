@@ -158,6 +158,10 @@ export const api = {
   projects: () => getJson<ProjectSummary[]>("/api/projects"),
   board: (projectKey: string) =>
     getJson<ProjectBoard>(`/api/projects/${projectKey}/board`),
+  card: (params: { projectKey: string; cardId: string }) =>
+    getJson<KanbanTask>(
+      `/api/projects/${params.projectKey}/cards/${params.cardId}`,
+    ),
   createColumn: (params: {
     projectKey: string;
     input: CreateBoardColumnInput;
