@@ -42,7 +42,7 @@ import { useForm } from "react-hook-form";
 
 type DialogKanbanCardMode = "create" | "view";
 
-interface DialogKanbanCardProps {
+export interface DialogKanbanCardProps {
   isOpen: boolean;
   mode: DialogKanbanCardMode;
   task?: KanbanTask | null;

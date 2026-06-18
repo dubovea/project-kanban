@@ -11,8 +11,9 @@ import { NetworkStatusBadge } from "@/components/NetworkStatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BoardPage } from "@/routes/board";
-import { DashboardPage, type DashboardCardRoute } from "@/routes/dashboard";
+import { DashboardPage } from "@/routes/dashboard";
 import { ProjectsPage } from "@/routes/projects";
+import type { DashboardCardRoute } from "@/widgets/kanban/model/types";
 
 function RootLayout() {
   return (

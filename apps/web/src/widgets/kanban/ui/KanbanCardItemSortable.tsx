@@ -1,7 +1,7 @@
 import { KanbanCardItem } from "@/widgets/kanban/ui/KanbanCardItem";
-import type { KanbanTask } from "@/lib/api";
 import { useSortable } from "@dnd-kit/react/sortable";
-import { ColumnId } from "../model/types";
+import type { KanbanTask } from "@/lib/api";
+import type { ColumnId } from "../model/types";
 import { useNavigate } from "@tanstack/react-router";
 
 interface KanbanCardItemSortableProps {

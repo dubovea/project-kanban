@@ -18,9 +18,7 @@ import type {
   KanbanIssueType,
   KanbanPriority,
   KanbanTask,
-} from "@project-kanban/shared";
-
-export type { KanbanIssueType, KanbanPriority, KanbanTask };
+} from "@/lib/api";
 
 interface KanbanCardItemProps extends React.ComponentProps<"div"> {
   task: KanbanTask;

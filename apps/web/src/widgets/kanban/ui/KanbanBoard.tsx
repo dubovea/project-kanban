@@ -1,20 +1,17 @@
 import { KanbanCardItem } from "@/widgets/kanban/ui/KanbanCardItem";
 import { Button } from "@/components/ui/button";
-import type { KanbanTask, ProjectBoard } from "@/lib/api";
-import {
-  DragDropProvider,
-  DragEndEvent,
-  DragOverEvent,
-  DragOverlay,
-} from "@dnd-kit/react";
+import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 import { KanbanColumnView } from "@/widgets/kanban/ui/KanbanColumnView";
 import { findTask } from "../lib/utils";
 import { Plus } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
+import type { DragEndEvent, DragOverEvent } from "@dnd-kit/react";
+import type { ProjectBoard } from "@/lib/api";
+import type { KanbanColumnsById } from "../model/types";
 
 interface KanbanBoardProps {
   board: ProjectBoard;
-  columns: Record<string, KanbanTask[]>;
+  columns: KanbanColumnsById;
   isBlocked: boolean;
   handleDragStart: () => void;
   handleDragOver: (event: DragOverEvent) => void;

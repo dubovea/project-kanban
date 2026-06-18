@@ -1,8 +1,26 @@
-import { KanbanTask } from "@project-kanban/shared";
-import { ColumnId } from "../model/types";
+import type { BoardColumn, KanbanTask } from "@/lib/api";
+import type {
+  ColumnId,
+  KanbanColumnsById,
+  KanbanTaskPosition,
+} from "../model/types";
+
+export function toKanbanColumnsById(
+  apiColumns: BoardColumn[],
+): KanbanColumnsById {
+  return Object.fromEntries(
+    apiColumns.map((column) => [column.id, column.tasks]),
+  );
+}
+
+export function cloneKanbanColumns(columns: KanbanColumnsById) {
+  return Object.fromEntries(
+    Object.entries(columns).map(([columnId, tasks]) => [columnId, [...tasks]]),
+  ) as KanbanColumnsById;
+}
 
 export function findTask(
-  columns: Record<ColumnId, KanbanTask[]>,
+  columns: KanbanColumnsById,
   taskId: string | null,
 ) {
   if (!taskId) {
@@ -21,9 +39,9 @@ export function findTask(
 }
 
 export function findTaskPosition(
-  columns: Record<ColumnId, KanbanTask[]>,
+  columns: KanbanColumnsById,
   taskId: string,
-) {
+): KanbanTaskPosition | null {
   for (const [columnId, tasks] of Object.entries(columns)) {
     const index = tasks.findIndex((task) => task.id === taskId);
 
@@ -40,7 +58,7 @@ export function findTaskPosition(
 }
 
 export function findTaskColumnId(
-  columns: Record<ColumnId, KanbanTask[]>,
+  columns: KanbanColumnsById,
   taskId: string | null,
 ) {
   if (!taskId) {

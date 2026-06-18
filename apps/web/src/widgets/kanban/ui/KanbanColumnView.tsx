@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
-import type { BoardColumn, KanbanTask } from "@/lib/api";
 import { useDroppable } from "@dnd-kit/react";
+import type { BoardColumn, KanbanTask } from "@/lib/api";
 import { KanbanCardItemSortable } from "./KanbanCardItemSortable";
 
 interface KanbanColumnViewProps {
