@@ -47,7 +47,10 @@ const typeIcons: Record<
   task: CircleDot,
 };
 
-export const KanbanCardItem = React.forwardRef<HTMLDivElement, KanbanCardItemProps>(
+export const KanbanCardItem = React.forwardRef<
+  HTMLDivElement,
+  KanbanCardItemProps
+>(
   (
     {
       task,

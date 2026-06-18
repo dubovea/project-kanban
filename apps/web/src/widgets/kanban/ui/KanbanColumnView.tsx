@@ -5,12 +5,12 @@ import { KanbanColumn } from "../model/types";
 import { KanbanCardItemSortable } from "./KanbanCardItemSortable";
 
 interface KanbanColumnViewProps {
-  isBoardBlocked: boolean;
+  isBlocked: boolean;
   column: KanbanColumn;
   tasks: KanbanTask[];
 }
 export function KanbanColumnView({
-  isBoardBlocked,
+  isBlocked,
   column,
   tasks,
 }: KanbanColumnViewProps) {
@@ -18,7 +18,7 @@ export function KanbanColumnView({
     id: column.id,
     accept: "issue",
     collisionPriority: 0,
-    disabled: isBoardBlocked,
+    disabled: isBlocked,
     data: {
       type: "column",
       columnId: column.id,
@@ -47,7 +47,7 @@ export function KanbanColumnView({
         {tasks.map((task, index) => (
           <KanbanCardItemSortable
             key={task.id}
-            isBoardBlocked={isBoardBlocked}
+            isBlocked={isBlocked}
             columnId={column.id}
             index={index}
             task={task}

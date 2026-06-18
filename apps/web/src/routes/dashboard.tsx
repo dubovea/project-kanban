@@ -1,44 +1,16 @@
 import { useDashboardQuery } from "@/services/queries/dashboard/dashboard-query";
-import { KanbanCardItem } from "@/widgets/kanban/ui/KanbanCardItem";
 import type { BoardColumn, KanbanTask } from "@/lib/api";
-import {
-  DragDropProvider,
-  DragOverlay,
-  type DragEndEvent,
-  type DragOverEvent,
-  type DragStartEvent,
-} from "@dnd-kit/react";
+import { type DragEndEvent, type DragOverEvent } from "@dnd-kit/react";
 import { move } from "@dnd-kit/helpers";
 import { useEffect, useRef, useState } from "react";
 import { useDashboardMutations } from "@/services/queries/dashboard/dashboard-mutations";
 import { useOfflineSyncStatus } from "@/services/offline/sync-store";
-import { ColumnId, KanbanColumn } from "@/widgets/kanban/model/types";
-import { KanbanColumnView } from "@/widgets/kanban/ui/KanbanColumnView";
+import { ColumnId } from "@/widgets/kanban/model/types";
+import { KanbanBoard, kanbanColumns } from "@/widgets/kanban/ui/KanbanBoard";
+import { findTaskPosition } from "@/widgets/kanban/lib/utils";
+import { DialogKanbanCard } from "@/widgets/kanban/ui/DialogKanbanCard";
 
 const DASHBOARD_PROJECT_KEY = "KAN";
-
-const kanbanColumns: KanbanColumn[] = [
-  {
-    id: "backlog",
-    title: "Backlog",
-    summary: "Triaged, not started",
-  },
-  {
-    id: "in_progress",
-    title: "In progress",
-    summary: "Implementation active",
-  },
-  {
-    id: "review",
-    title: "Review",
-    summary: "Waiting for validation",
-  },
-  {
-    id: "done",
-    title: "Done",
-    summary: "Released or closed",
-  },
-];
 
 function createEmptyColumns(): Record<ColumnId, KanbanTask[]> {
   return {
@@ -65,44 +37,6 @@ function toDashboardColumns(
   }
 
   return nextColumns;
-}
-
-function findTask(
-  columns: Record<ColumnId, KanbanTask[]>,
-  taskId: string | null,
-) {
-  if (!taskId) {
-    return undefined;
-  }
-
-  for (const column of kanbanColumns) {
-    const task = columns[column.id].find((item) => item.id === taskId);
-
-    if (task) {
-      return task;
-    }
-  }
-
-  return undefined;
-}
-
-function findTaskPosition(
-  columns: Record<ColumnId, KanbanTask[]>,
-  taskId: string,
-) {
-  for (const column of kanbanColumns) {
-    const index = columns[column.id].findIndex((task) => task.id === taskId);
-
-    if (index !== -1) {
-      return {
-        columnId: column.id,
-        index,
-        task: columns[column.id][index],
-      };
-    }
-  }
-
-  return null;
 }
 
 function cloneColumns(columns: Record<ColumnId, KanbanTask[]>) {
@@ -132,7 +66,7 @@ export function DashboardPage() {
     previousColumns.current = cloneColumns(nextColumns);
   }, [dashboardQuery.data]);
 
-  function handleDragStart(_event: DragStartEvent) {
+  function handleDragStart() {
     if (isBoardBlocked) {
       return;
     }
@@ -172,9 +106,16 @@ export function DashboardPage() {
     }
 
     const cardId = String(source.id);
+    const positionInitial = findTaskPosition(previousColumns.current, cardId);
     const position = findTaskPosition(columns, cardId);
+    if (!position || !positionInitial) {
+      return;
+    }
 
-    if (!position) {
+    if (
+      position.index === positionInitial.index &&
+      position.columnId === positionInitial.columnId
+    ) {
       return;
     }
 
@@ -226,45 +167,17 @@ export function DashboardPage() {
   const board = dashboardQuery.data;
 
   return (
-    <DragDropProvider
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="grid gap-6">
-        <section className="grid gap-2">
-          <h1 className="text-2xl font-semibold tracking-normal">
-            {board.project.name}
-          </h1>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            {board.project.description}
-          </p>
-        </section>
+    <>
+      <DialogKanbanCard isOpen={false} />
 
-        <section className="grid gap-4 xl:grid-cols-4">
-          {kanbanColumns.map((column) => (
-            <KanbanColumnView
-              key={column.id}
-              isBoardBlocked={isBoardBlocked}
-              column={column}
-              tasks={columns[column.id]}
-            />
-          ))}
-        </section>
-      </div>
-
-      <DragOverlay>
-        {(source) => {
-          const task = findTask(
-            columns,
-            typeof source.id === "string" ? source.id : null,
-          );
-
-          return task ? (
-            <KanbanCardItem task={task} isOverlay isBlocked />
-          ) : null;
-        }}
-      </DragOverlay>
-    </DragDropProvider>
+      <KanbanBoard
+        board={board}
+        columns={columns}
+        isBlocked={isBoardBlocked}
+        handleDragStart={handleDragStart}
+        handleDragOver={handleDragOver}
+        handleDragEnd={handleDragEnd}
+      />
+    </>
   );
 }

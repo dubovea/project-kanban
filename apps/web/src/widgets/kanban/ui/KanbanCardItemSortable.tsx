@@ -4,14 +4,14 @@ import { useSortable } from "@dnd-kit/react/sortable";
 import { ColumnId } from "../model/types";
 
 interface KanbanCardItemSortableProps {
-  isBoardBlocked: boolean;
+  isBlocked: boolean;
   columnId: ColumnId;
   index: number;
   task: KanbanTask;
 }
 
 export function KanbanCardItemSortable({
-  isBoardBlocked,
+  isBlocked,
   columnId,
   index,
   task,
@@ -27,7 +27,7 @@ export function KanbanCardItemSortable({
       group: columnId,
       id: task.id,
       index,
-      disabled: isBoardBlocked,
+      disabled: isBlocked,
       type: "issue",
     });
 
@@ -38,7 +38,7 @@ export function KanbanCardItemSortable({
       handleRef={handleRef}
       isDragSource={isDragging || isDragSource}
       isDropTarget={isDropTarget}
-      isBlocked={isBoardBlocked}
+      isBlocked={isBlocked}
     />
   );
 }
