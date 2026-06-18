@@ -2,6 +2,7 @@ import { KanbanCardItem } from "@/widgets/kanban/ui/KanbanCardItem";
 import type { KanbanTask } from "@/lib/api";
 import { useSortable } from "@dnd-kit/react/sortable";
 import { ColumnId } from "../model/types";
+import { useKanbanCardDialogStore } from "../model/card-dialog-store";
 
 interface KanbanCardItemSortableProps {
   isBlocked: boolean;
@@ -16,6 +17,7 @@ export function KanbanCardItemSortable({
   index,
   task,
 }: KanbanCardItemSortableProps) {
+  const openCard = useKanbanCardDialogStore((state) => state.openCard);
   const { ref, handleRef, isDragging, isDragSource, isDropTarget } =
     useSortable({
       accept: "issue",
@@ -39,6 +41,11 @@ export function KanbanCardItemSortable({
       isDragSource={isDragging || isDragSource}
       isDropTarget={isDropTarget}
       isBlocked={isBlocked}
+      onClick={() => {
+        if (!isBlocked && !isDragging && !isDragSource) {
+          openCard(task.id);
+        }
+      }}
     />
   );
 }

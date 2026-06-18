@@ -1,5 +1,4 @@
 import { KanbanTask } from "@project-kanban/shared";
-import { kanbanColumns } from "../ui/KanbanBoard";
 import { ColumnId } from "../model/types";
 
 export function findTask(
@@ -10,8 +9,8 @@ export function findTask(
     return undefined;
   }
 
-  for (const column of kanbanColumns) {
-    const task = columns[column.id].find((item) => item.id === taskId);
+  for (const tasks of Object.values(columns)) {
+    const task = tasks.find((item) => item.id === taskId);
 
     if (task) {
       return task;
@@ -25,17 +24,28 @@ export function findTaskPosition(
   columns: Record<ColumnId, KanbanTask[]>,
   taskId: string,
 ) {
-  for (const column of kanbanColumns) {
-    const index = columns[column.id].findIndex((task) => task.id === taskId);
+  for (const [columnId, tasks] of Object.entries(columns)) {
+    const index = tasks.findIndex((task) => task.id === taskId);
 
     if (index !== -1) {
       return {
-        columnId: column.id,
+        columnId,
         index,
-        task: columns[column.id][index],
+        task: tasks[index],
       };
     }
   }
 
   return null;
+}
+
+export function findTaskColumnId(
+  columns: Record<ColumnId, KanbanTask[]>,
+  taskId: string | null,
+) {
+  if (!taskId) {
+    return undefined;
+  }
+
+  return findTaskPosition(columns, taskId)?.columnId;
 }

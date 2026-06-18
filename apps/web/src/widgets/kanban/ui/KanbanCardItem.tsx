@@ -91,6 +91,7 @@ export const KanbanCardItem = React.forwardRef<
               ref={handleRef}
               type="button"
               disabled={isBlocked}
+              onClick={(event) => event.stopPropagation()}
               className={cn(
                 "rounded-md p-1 text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
                 isBlocked &&

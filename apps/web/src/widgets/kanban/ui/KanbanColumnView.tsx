@@ -1,12 +1,11 @@
 import { cn } from "@/lib/utils";
-import type { KanbanTask } from "@/lib/api";
+import type { BoardColumn, KanbanTask } from "@/lib/api";
 import { useDroppable } from "@dnd-kit/react";
-import { KanbanColumn } from "../model/types";
 import { KanbanCardItemSortable } from "./KanbanCardItemSortable";
 
 interface KanbanColumnViewProps {
   isBlocked: boolean;
-  column: KanbanColumn;
+  column: Pick<BoardColumn, "id" | "title" | "summary">;
   tasks: KanbanTask[];
 }
 export function KanbanColumnView({

@@ -5,55 +5,90 @@ import { move } from "@dnd-kit/helpers";
 import { useEffect, useRef, useState } from "react";
 import { useDashboardMutations } from "@/services/queries/dashboard/dashboard-mutations";
 import { useOfflineSyncStatus } from "@/services/offline/sync-store";
-import { ColumnId } from "@/widgets/kanban/model/types";
-import { KanbanBoard, kanbanColumns } from "@/widgets/kanban/ui/KanbanBoard";
-import { findTaskPosition } from "@/widgets/kanban/lib/utils";
+import { KanbanBoard } from "@/widgets/kanban/ui/KanbanBoard";
+import {
+  findTask,
+  findTaskColumnId,
+  findTaskPosition,
+} from "@/widgets/kanban/lib/utils";
 import { DialogKanbanCard } from "@/widgets/kanban/ui/DialogKanbanCard";
+import {
+  toCreateIssueCardInput,
+  toUpdateIssueCardInput,
+  type KanbanCardFormValues,
+} from "@/widgets/kanban/model/card-form-schema";
+import {
+  type KanbanCardDialogTarget,
+  useKanbanCardDialogStore,
+} from "@/widgets/kanban/model/card-dialog-store";
+import { useNavigate } from "@tanstack/react-router";
 
 const DASHBOARD_PROJECT_KEY = "KAN";
 
-function createEmptyColumns(): Record<ColumnId, KanbanTask[]> {
-  return {
-    backlog: [],
-    in_progress: [],
-    review: [],
-    done: [],
-  };
+type DashboardColumns = Record<string, KanbanTask[]>;
+
+export type DashboardCardRoute = KanbanCardDialogTarget | null;
+
+function toDashboardColumns(apiColumns: BoardColumn[]): DashboardColumns {
+  return Object.fromEntries(
+    apiColumns.map((column) => [column.id, column.tasks]),
+  );
 }
 
-function isColumnId(value: string): value is ColumnId {
-  return kanbanColumns.some((column) => column.id === value);
-}
-
-function toDashboardColumns(
-  apiColumns: BoardColumn[],
-): Record<ColumnId, KanbanTask[]> {
-  const nextColumns = createEmptyColumns();
-
-  for (const column of apiColumns) {
-    if (isColumnId(column.key)) {
-      nextColumns[column.key] = column.tasks;
-    }
-  }
-
-  return nextColumns;
-}
-
-function cloneColumns(columns: Record<ColumnId, KanbanTask[]>) {
+function cloneColumns(columns: DashboardColumns) {
   return Object.fromEntries(
     Object.entries(columns).map(([columnId, tasks]) => [columnId, [...tasks]]),
-  ) as Record<ColumnId, KanbanTask[]>;
+  ) as DashboardColumns;
 }
 
-export function DashboardPage() {
+interface DashboardPageProps {
+  cardRoute?: DashboardCardRoute;
+}
+
+export function DashboardPage({ cardRoute = null }: DashboardPageProps) {
+  const navigate = useNavigate();
   const dashboardQuery = useDashboardQuery(DASHBOARD_PROJECT_KEY);
   const { isSyncing } = useOfflineSyncStatus();
-  const { moveCard, isBlocked } = useDashboardMutations(DASHBOARD_PROJECT_KEY);
+  const {
+    createCard,
+    moveCard,
+    updateCard,
+    isBlocked,
+    isCardSubmitting,
+  } = useDashboardMutations(DASHBOARD_PROJECT_KEY);
+  const pendingTarget = useKanbanCardDialogStore(
+    (state) => state.pendingTarget,
+  );
+  const clearPendingTarget = useKanbanCardDialogStore(
+    (state) => state.clearPendingTarget,
+  );
   const isBoardBlocked = isBlocked || isSyncing;
-  const [columns, setColumns] =
-    useState<Record<ColumnId, KanbanTask[]>>(createEmptyColumns);
-  const previousColumns =
-    useRef<Record<ColumnId, KanbanTask[]>>(createEmptyColumns());
+  const [columns, setColumns] = useState<DashboardColumns>({});
+  const previousColumns = useRef<DashboardColumns>({});
+
+  useEffect(() => {
+    if (!pendingTarget) {
+      return;
+    }
+
+    if (pendingTarget.type === "view") {
+      void navigate({
+        to: "/cards/$cardId",
+        params: {
+          cardId: pendingTarget.cardId,
+        },
+      });
+    } else {
+      void navigate({
+        to: "/cards/new",
+        search: {
+          columnId: pendingTarget.columnId,
+        },
+      });
+    }
+
+    clearPendingTarget();
+  }, [clearPendingTarget, navigate, pendingTarget]);
 
   useEffect(() => {
     if (!dashboardQuery.data) {
@@ -108,6 +143,7 @@ export function DashboardPage() {
     const cardId = String(source.id);
     const positionInitial = findTaskPosition(previousColumns.current, cardId);
     const position = findTaskPosition(columns, cardId);
+
     if (!position || !positionInitial) {
       return;
     }
@@ -120,7 +156,7 @@ export function DashboardPage() {
     }
 
     const targetColumn = board.columns.find(
-      (column) => column.key === position.columnId,
+      (column) => column.id === position.columnId,
     );
 
     if (!targetColumn) {
@@ -138,6 +174,10 @@ export function DashboardPage() {
     }).catch(() => {
       setColumns(previousColumns.current);
     });
+  }
+
+  function closeCardRoute() {
+    void navigate({ to: "/" });
   }
 
   if (dashboardQuery.isPending) {
@@ -165,10 +205,81 @@ export function DashboardPage() {
   }
 
   const board = dashboardQuery.data;
+  const selectedTask =
+    cardRoute?.type === "view" ? findTask(columns, cardRoute.cardId) : null;
+  const selectedTaskColumnId = findTaskColumnId(
+    columns,
+    selectedTask?.id ?? null,
+  );
+  const dialogColumnId =
+    cardRoute?.type === "create"
+      ? (cardRoute.columnId ?? board.columns[0]?.id)
+      : selectedTaskColumnId;
+  const isDialogOpen = Boolean(cardRoute);
+
+  async function handleCardDialogSubmit(values: KanbanCardFormValues) {
+    const targetColumn = board.columns.find(
+      (column) => column.id === values.columnId,
+    );
+
+    if (cardRoute?.type === "create") {
+      const createdCard = await createCard({
+        projectKey: DASHBOARD_PROJECT_KEY,
+        input: toCreateIssueCardInput(values),
+      });
+
+      if (createdCard) {
+        void navigate({
+          to: "/cards/$cardId",
+          params: {
+            cardId: createdCard.id,
+          },
+        });
+      } else {
+        closeCardRoute();
+      }
+
+      return;
+    }
+
+    if (cardRoute?.type !== "view" || !selectedTask) {
+      return;
+    }
+
+    await updateCard({
+      projectKey: DASHBOARD_PROJECT_KEY,
+      cardId: selectedTask.id,
+      input: toUpdateIssueCardInput(values, targetColumn),
+    });
+
+    if (selectedTaskColumnId && values.columnId !== selectedTaskColumnId) {
+      await moveCard({
+        projectKey: DASHBOARD_PROJECT_KEY,
+        cardId: selectedTask.id,
+        input: {
+          targetColumnId: values.columnId,
+          targetIndex: columns[values.columnId]?.length ?? 0,
+        },
+      });
+    }
+  }
 
   return (
     <>
-      <DialogKanbanCard isOpen={false} />
+      <DialogKanbanCard
+        isOpen={isDialogOpen}
+        mode={cardRoute?.type === "create" ? "create" : "view"}
+        task={selectedTask}
+        columns={board.columns}
+        columnId={dialogColumnId}
+        isSubmitting={isCardSubmitting}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeCardRoute();
+          }
+        }}
+        onSubmit={handleCardDialogSubmit}
+      />
 
       <KanbanBoard
         board={board}

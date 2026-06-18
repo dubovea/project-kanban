@@ -1,4 +1,4 @@
-export type ColumnId = "backlog" | "in_progress" | "review" | "done";
+export type ColumnId = string;
 
 export interface KanbanColumn {
   id: ColumnId;

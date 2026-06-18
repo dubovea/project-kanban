@@ -11,7 +11,7 @@ import { NetworkStatusBadge } from "@/components/NetworkStatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BoardPage } from "@/routes/board";
-import { DashboardPage } from "@/routes/dashboard";
+import { DashboardPage, type DashboardCardRoute } from "@/routes/dashboard";
 import { ProjectsPage } from "@/routes/projects";
 
 function RootLayout() {
@@ -62,6 +62,37 @@ const dashboardRoute = createRoute({
   component: DashboardPage,
 });
 
+const dashboardNewCardRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/cards/new",
+  validateSearch: (search: Record<string, unknown>) => ({
+    columnId: typeof search.columnId === "string" ? search.columnId : undefined,
+  }),
+  component: function DashboardNewCardRoute() {
+    const search = dashboardNewCardRoute.useSearch();
+    const cardRoute: DashboardCardRoute = {
+      type: "create",
+      columnId: search.columnId,
+    };
+
+    return <DashboardPage cardRoute={cardRoute} />;
+  },
+});
+
+const dashboardCardRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/cards/$cardId",
+  component: function DashboardCardRoute() {
+    const params = dashboardCardRoute.useParams();
+    const cardRoute: DashboardCardRoute = {
+      type: "view",
+      cardId: params.cardId,
+    };
+
+    return <DashboardPage cardRoute={cardRoute} />;
+  },
+});
+
 const projectsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/projects",
@@ -76,6 +107,8 @@ const boardRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   dashboardRoute,
+  dashboardNewCardRoute,
+  dashboardCardRoute,
   projectsRoute,
   boardRoute,
 ]);

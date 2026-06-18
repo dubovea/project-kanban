@@ -1,11 +1,17 @@
 import { api, type ProjectBoard } from "@/lib/api";
 import { useNetworkStatus } from "@/lib/network-status";
-import { enqueueMoveCardMutation } from "@/services/offline";
+import {
+  enqueueCreateCardMutation,
+  enqueueMoveCardMutation,
+  enqueueUpdateCardMutation,
+} from "@/services/offline";
 import { dashboardQueryKeys } from "@/services/queries/dashboard/dashboard-query";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 
 type MoveCardParams = Parameters<typeof api.moveCard>[0];
+type CreateCardParams = Parameters<typeof api.createCard>[0];
+type UpdateCardParams = Parameters<typeof api.updateCard>[0];
 
 function applyMoveCardToBoard(
   board: ProjectBoard,
@@ -71,6 +77,44 @@ export function useDashboardMutations(projectKey: string) {
     },
   });
 
+  const createCardMutation = useMutation({
+    mutationFn: api.createCard,
+    onSuccess: invalidateBoard,
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const updateCardMutation = useMutation({
+    mutationFn: api.updateCard,
+    onSuccess: invalidateBoard,
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const createCard = async (params: CreateCardParams) => {
+    if (!isOnline) {
+      await enqueueCreateCardMutation(params);
+      toast.info("Card creation saved offline. Sync is started after online.");
+
+      return undefined;
+    }
+
+    return createCardMutation.mutateAsync(params);
+  };
+
+  const updateCard = async (params: UpdateCardParams) => {
+    if (!isOnline) {
+      await enqueueUpdateCardMutation(params);
+      toast.info("Card update saved offline. Sync is started after online.");
+
+      return undefined;
+    }
+
+    return updateCardMutation.mutateAsync(params);
+  };
+
   const moveCard = async (params: MoveCardParams) => {
     if (!isOnline) {
       const previousBoard = queryClient.getQueryData<ProjectBoard>(
@@ -102,7 +146,14 @@ export function useDashboardMutations(projectKey: string) {
   };
 
   return {
+    createCard,
     moveCard,
-    isBlocked: moveCardMutation.isPending,
+    updateCard,
+    isBlocked:
+      createCardMutation.isPending ||
+      moveCardMutation.isPending ||
+      updateCardMutation.isPending,
+    isCardSubmitting:
+      createCardMutation.isPending || updateCardMutation.isPending,
   };
 }
