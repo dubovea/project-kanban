@@ -22,7 +22,7 @@ import type {
 
 export type { KanbanIssueType, KanbanPriority, KanbanTask };
 
-interface KanbanCardProps extends React.ComponentProps<"div"> {
+interface KanbanCardItemProps extends React.ComponentProps<"div"> {
   task: KanbanTask;
   handleRef?: React.Ref<HTMLButtonElement>;
   isDragSource?: boolean;
@@ -47,7 +47,7 @@ const typeIcons: Record<
   task: CircleDot,
 };
 
-export const KanbanCard = React.forwardRef<HTMLDivElement, KanbanCardProps>(
+export const KanbanCardItem = React.forwardRef<HTMLDivElement, KanbanCardItemProps>(
   (
     {
       task,
@@ -67,11 +67,10 @@ export const KanbanCard = React.forwardRef<HTMLDivElement, KanbanCardProps>(
       <Card
         ref={ref}
         className={cn(
-          "touch-none select-none overflow-hidden border bg-card transition-[border-color,box-shadow,opacity,transform]",
+          "cursor-pointer overflow-hidden border bg-card transition-[border-color,box-shadow,opacity,transform]",
           isDropTarget && "border-primary shadow-sm",
           isDragSource && "opacity-0",
           isOverlay && "opacity-60 cursor-grabbing shadow-xl",
-          !isOverlay && !isBlocked && "cursor-grab active:cursor-grabbing",
           isBlocked && "cursor-not-allowed opacity-70",
           className,
         )}
@@ -80,7 +79,7 @@ export const KanbanCard = React.forwardRef<HTMLDivElement, KanbanCardProps>(
         <CardHeader className="gap-3 p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-              <TypeIcon className="size-4 shrink-0 text-primary" />
+              <TypeIcon className="size-4 shrink-0 text-primary " />
               <span className="font-medium text-foreground">{task.key}</span>
               <span className="truncate">{task.state}</span>
             </div>
@@ -91,11 +90,12 @@ export const KanbanCard = React.forwardRef<HTMLDivElement, KanbanCardProps>(
               disabled={isBlocked}
               className={cn(
                 "rounded-md p-1 text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
-                isBlocked && "cursor-not-allowed opacity-50 hover:bg-transparent",
+                isBlocked &&
+                  "cursor-not-allowed opacity-50 hover:bg-transparent",
               )}
               aria-label={`Move ${task.key}`}
             >
-              <GripVertical className="size-4" />
+              <GripVertical className="size-4 cursor-grab active:cursor-grabbing" />
             </button>
           </div>
 
@@ -160,4 +160,4 @@ export const KanbanCard = React.forwardRef<HTMLDivElement, KanbanCardProps>(
   },
 );
 
-KanbanCard.displayName = "KanbanCard";
+KanbanCardItem.displayName = "KanbanCardItem";
